@@ -1,0 +1,27 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1568449553915.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "2474704201",
+    "id" : "F602568",
+    "lastKnownWriteTime" : 1568943489,
+    "last_content_update" : 1568943489049,
+    "path" : "~/Dropbox/Jones Lab/PhD courses/Advanced Biostatistics/textbook_problems/2019-09-14_chapter1.R",
+    "project_path" : "2019-09-14_chapter1.R",
+    "properties" : {
+        "cursorPosition" : "313,63",
+        "docOutlineVisible" : "0",
+        "scrollLine" : "303",
+        "tempName" : "Untitled1"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

@@ -1,0 +1,858 @@
+---
+title: "Chapter 2: Statistical Modeling"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This chapter deals with statistical modeling: creating a model that can plausibly explain the data.
+All examples are parametric but the procedures generalize for nonparametric models as well.  
+
+Estimated data are represent with hat (^) wearing Greek letters.  
+
+### Chapter Goals  
+1. Be able to recognize the difference between probability and statistics.
+2. Fit data to probability distributions such as histograms.
+3. Become familiar with maximum likelihood estimating procedure.
+4. Make inferences from data which we have previous info on.  
+
+### Parameters  
+**λ** defines a Poisson distribution.  
+**μ** is used to represent the mean of the normal distribution.  
+**θ** is used to designate a generic tuple of parameters necessary to specify a probability model. In the case of the binomial distribution, θ=(n,p)
+
+## 2.2 The difference between statistical and probabilistic models  
+To conduct a **_probalistic analysis_** we need a generative model and the paramters actual values.  
+
+In **_statistical inference_** we may know some of the paramters but not all of them. We must then go up from the known parameters to estimate both a probability model F (Poisson, normal, binomial) and eventually the missing parameter(s) for that model.
+
+## 2.3 A simple example of statistical modeling  
+There are two parts to the modeling procedure.  
+1. A reasonable probability distribution to model the data generation process.  
+2. 
+
+Let's use the epitope example from Chatper 1 to construct a visual evaluation of goodness-of-fit. We will remove the outlier (the 100th data point).  
+
+Our first step is to find a fit from candidate distributions; this requires consulting graphical and quantitative goodness-of-fit plots.  
+For **_discrete data_**, we can plot a barplot of frequencies.  
+For **_continuous data_**, we  look at the histogram.  
+
+Barplot of the epitope data.
+
+```{r eval=TRUE}
+load("e100.RData")
+e99 = e100[-which.max(e100)]
+barplot(table(e99), space = 0.8, col = "chartreuse4")
+```
+
+It is hard to decide which theoretical distribution fits the data best without using a comparison. Can use a rootogram (Cleveland 1988) for comparison of goodness-of-fit; it hangs the bars with the observed counts from the theoretical red points. If the counts correspond exactly to their theoretical values, the bottom of the boxes will align exactly with the horizontal axis.  
+```{r eval=TRUE}
+library("vcd")
+gf1 = goodfit( e99, "poisson")
+rootogram(gf1, xlab = "", rect_gp = gpar(fill = "chartreuse4"))
+```
+
+##### Question
+To calibrate what such a plot looks like with a known Poisson variable, use rpois with 
+λ 0.05 to generate 100 Poisson distributed numbers and draw their rootogram.
+
+```{r eval=TRUE}
+fish <- rpois(100, 0.05)
+gf.fish = goodfit( fish, "poisson")
+rootogram(gf.fish, xlab = "", rect_gp = gpar(fill = "chartreuse4"))
+```
+
+##### Estimating the parameter of the Poisson distribution  
+What value for the Poisson mean makes the data the most probable?  
+
+1. Tally outcomes.  
+```{r eval=TRUE}
+table(e100)
+```
+
+2. Try out different values for Poisson mean to find which fits best to our observed values.  
+
+```{r eval=TRUE}
+table(rpois(100, 3))
+table(rpois(100, 2))
+table(rpois(100, 1))
+table(rpois(100, 0))
+```
+
+Instead of blindly trying out different values, we can see what value maximizes the probability of observing our data. We do this by calculating the probability of seeing the data if the value of the Poisson parameter is m.  
+Since we suppose the data derive from independent draws, this probability is simply the product of individual probabilities.  
+Therefore, for m=3:  
+```{r eval=TRUE}
+prod(dpois(c(0, 1, 2, 7), lambda = 3) ^ (c(58, 34, 7, 1)))
+```
+
+##### Question   
+Computer the probability for m=0,1,2.  
+```{r eval=TRUE}
+prod(dpois(c(0, 1, 2, 7), lambda = 0) ^ (c(58, 34, 7, 1)))
+prod(dpois(c(0, 1, 2, 7), lambda = 1) ^ (c(58, 34, 7, 1)))
+prod(dpois(c(0, 1, 2, 7), lambda = 2) ^ (c(58, 34, 7, 1)))
+prod(dpois(c(0, 1, 2, 7), lambda = 0.4) ^ (c(58, 34, 7, 1)))
+```
+
+Instead of working with multiplications of a hundred small numbers, it is convenient to take the logarithm. Since the logarithm is strictly increasing, if there is a point where the logarithm achieves its maximum within an interval it will also be the maximum for the probability.  
+
+Illustion using a function to compute the likelihood of many poisson values.  
+```{r eval=TRUE}
+loglikelihood  =  function(lambda, data = e100) {
+  sum(log(dpois(data, lambda)))
+}
+```
+
+Then use the function to compute lambda=0.05 to lambda=0.95
+```{r eval=TRUE}
+lambdas = seq(0.05, 0.95, length = 100)
+loglik = vapply(lambdas, loglikelihood, numeric(1))
+plot(lambdas, loglik, type = "l", col = "red", ylab = "", lwd = 2,
+     xlab = expression(lambda))
+m0 = mean(e100)
+abline(v = m0, col = "blue", lwd = 2)
+abline(h = loglikelihood(m0), col = "purple", lwd = 2)
+m0
+```
+
+##### Question  
+What does vapply do?  
+Vapply applies the function loglikelihood to all values of lambda and gives their log value with no decimal places.  
+
+There is a short cut to this. The **goodfit** function.
+```{r eval=TRUE}
+gf  =  goodfit(e100, "poisson")
+gf$par
+```
+
+goodfit output components:  
+observed - number of observations of each count  
+count - bins of number of occurances  
+fitted - probability of observing each count  
+type - type of distribution  
+method - type of estimate (ML- maximum likelihood) 
+df- degrees of freedom  
+par - best fitting lambda paramter  
+
+### 2.3.1 Classical statistics for classical data  
+What is the value of modeling with a known distribution? For instance, why is it interesting to know a variable has a Poisson distribution?  
+
+Another useful direction is **regression**. We may be interested in knowing how our count-based response variable (e.g., the result of counting sequencing reads) depends on a continuous covariate, say, temperature or nutrient concentration.
+
+You may already have encountered **linear regression**, where our model is that the response variable y depends on the covariate x via the equation y = ax + b + e, with parameters a and b (that we need to estimate), and with residuals e whose probability model is a normal distribution (whose variance we usually also need to estimate).  
+
+For **count data** the same type of regression model is possible, although the probability distribution for the residuals then needs to be **non-normal**. In that case we use the **generalized linear models** framework.  
+
+## 2.4 Binomial distributions and maximum likelihood  
+In a binomial distribution there are two parameters: the number of trials n, which is typically known, and the probability p of seeing a 1 in a trial. This probability is often unknown.  
+
+##### Example  
+Suppose we take a sample of n=120 males and test them for red-green colorblindness. We can code the data as 0 if the subject is not colorblind and 1 if he is. We summarize the data by the table.  
+```{r eval=TRUE}
+cb  =  c(rep(0, 110), rep(1, 10))
+table(cb)
+```
+
+What is the most likely value of p?  
+As before in the case of the Poisson, if we compute the likelihood for many possible p, we can plot it and see where its maximum falls.  
+```{r eval=TRUE}
+probs  =  seq(0, 0.3, by = 0.005)
+likelihood = dbinom(sum(cb), prob = probs, size = length(cb))
+plot(probs, likelihood, pch = 16, xlab = "probability of success",
+       ylab = "likelihood", cex=0.6)
+probs[which.max(likelihood)]
+```
+##### Likelihood for the binomial distribution  
+Likelihood and the probability are the same mathematical function, only interpreted in different ways.  
+
+Likelihood - tells us how probable it is to see a particular set of values of the data, given the parameters.  
+Probability - consider the data as fixed, and ask for the particular parameter value that makes the data more likely.  
+
+A function to calculate likelihood:  
+```{r eval=TRUE}
+loglikelihood = function(theta, n = 300, k = 40) {
+  115 + k * log(theta) + (n - k) * log(1 - theta)
+}
+```
+We can use this function to help us plot θ from 0 to 1.  
+```{r eval=TRUE}
+thetas = seq(0, 1, by = 0.001)
+plot(thetas, loglikelihood(thetas), xlab = expression(theta),
+  ylab = expression(paste("log f(", theta, " | y)")),type = "l")
+```
+## 2.5 More boxes:multinomial data  
+
+### 2.5.1 DNA count modeling: base pairs  
+Can use binomial function to look at differences in counts between purines (A and G) and pyrimidines (C and T).  
+Need a multinomial function to look at each nucleotide separately (A, C, G, T).
+
+### 2.5.2 Nucleotide bias  
+In this section we will combine estimation and testing by simulation in a real example of _S. aureus_.
+
+```{r eval=TRUE}
+library("Biostrings")
+staph = readDNAStringSet("staphsequence.ffn.txt", "fasta")
+```
+Look at the first gene and frequency of each nucleotide in the first gene.  
+```{r eval=TRUE}
+staph[1]
+letterFrequency(staph[[1]], letters = "ACGT", OR = 0)
+```
+The double square brackets allow us to access the DNA string of length n characters, where the single brackets outputs a single string.  
+
+Test whether the nucleotides in gene 1 of _S. aureus_ are equally distrubuted:  
+```{r eval=TRUE}
+nucfreq <- alphabetFrequency(staph[[1]], baseOnly=TRUE)
+nucprob <- nucfreq/length(staph[[1]])
+chisq.test(nucfreq[1:4], y=NULL, rep(1/4,4))
+```
+Does selective pressure vary between the first 10 genes? ie. Do nucleotide frequencies vary between them.  
+```{r eval=TRUE}
+letterFrq = vapply(staph, letterFrequency, FUN.VALUE = numeric(4),
+         letters = "ACGT", OR = 0)
+colnames(letterFrq) = paste0("gene", seq(along = staph))
+tab10 = letterFrq[, 1:10]
+computeProportions = function(x) { x/sum(x) }
+prop10 = apply(tab10, 2, computeProportions)
+round(prop10, digits = 2)
+p0 = rowMeans(prop10)
+p0
+```
+Use a monte carlo simulation to determine whether the nucleotide frequencies observed in these 10 genes follow the expected distribution. We compute the expected frequencies by taking the outer product of the vector of probabilities (p0) with the sum of nucletoide counts from each of the 10 columns.  
+```{r eval=TRUE}
+cs = colSums(tab10)
+cs
+expectedtab10 = outer(p0, cs, FUN = "*")
+round(expectedtab10)
+#create a random table with the correct column sums using the rmultinom function. 
+#This table is generated according to the null hypothesis that the true proportions are given by p0.
+randomtab10 = sapply(cs, function(s) { rmultinom(1, s, p0) } )
+all(colSums(randomtab10) == cs)
+#repeat this 1000 times
+stat = function(obsvd, exptd = 20 * pvec) {
+   sum((obsvd - exptd)^2 / exptd)
+}
+B = 1000
+simulstat = replicate(B, {
+  randomtab10 = sapply(cs, function(s) { rmultinom(1, s, p0) })
+  stat(randomtab10, expectedtab10)
+})
+S1 = stat(tab10, expectedtab10)
+sum(simulstat >= S1)
+#make histogram
+hist(simulstat, col = "lavender", breaks = seq(0, 75, length.out=50))
+abline(v = S1, col = "red")
+abline(v = quantile(simulstat, probs = c(0.95, 0.99)),
+       col = c("darkgreen", "blue"), lty = 2)
+```
+
+## 2.6 The χ2 distribution
+
+The theoretical distribution of the simulstat statistic is called the χ2 (chi-squared) distribution. The chi-squared distribution is particularly good if the counts in the table are large.  
+
+We can check how well theory and simulation match up in our case using another visual goodness-of-fit tool: the (QQ) plot. This method is based on the quantiles of each of the distributions.  
+
+### 2.6.1 Intermezzo: quantiles and the quantile-quantile plot
+
+#### Question
+(A) Compare the simulstat values and 1000 randomly generated χ2 30 random numbers by displaying them in histograms with 50 bins each.  
+```{r eval=TRUE}
+#generate 1000 chisquared numbers
+chinum <- rchisq(1000, 30, ncp = 0)
+hist(chinum, breaks=50)  
+hist(simulstat, breaks=50, plot.new())
+
+```
+
+
+(B) Compute the quantiles of the simulstat values and compare them to those of the χ2 30 distribution. Hint:  
+
+```{r eval=TRUE}
+qs = ppoints(1000)
+quantile(simulstat, qs)
+quantile(qchisq(qs, df = 30), qs)
+```
+
+#### Question
+In the above definition, we were a little vague on how the quantile is defined in general, i.e., not just for 0.22. How is the quantile computed for any number between 0 and 1, including ones that are not multiples of 1/n?  
+
+**_All sample quantiles are defined as weighted averages of consecutive order statistics. _**  
+
+Now that we have an idea what quantiles are, we can do the quantile-quantile plot. We plot the quantiles of the simulstat values, which we simulated under the null hypothesis, against the theoretical null distribution χ2 30:  
+
+```{r eval=TRUE}
+qqplot(qchisq(ppoints(B), df = 30), simulstat, main = "",
+  xlab = expression(chi[nu==30]^2), asp = 1, cex = 0.5, pch = 16)
+abline(a = 0, b = 1, col = "red")
+```
+
+Having convinced ourselves that simulstat is well described by a χ2 30 distribution, we can use that to compute our p-value, i.e., the probability that under the null hypothesis (counts are distributed as multinomial with probabilities pA=0.35, pC=0.15, pG=0.2, pT=0.3) we observe a value as high as S1=70.  
+
+```{r eval=TRUE}
+1 - pchisq(S1, df = 30)
+```
+
+## 2.7 Chargaff’s Rule  
+
+```{r eval=TRUE}
+load("ChargaffTable.RData")
+ChargaffTable
+```
+
+#### Question  
+**Chargaff’s rule**: The amount of A is equal to the amount of T, the amount of C is equal to the amount of G. 
+
+(A) Do these data seem to come from equally likely multinomial categories?  
+_No these data do not_
+
+(B) Can you suggest an alternative pattern?  
+_Eukaryotes come from one pattern, prokaryotes come from another pattern. Prokaryotes have a greater proportion of G and C in their genome._
+
+(C) Can you do a quantitative analysis of the pattern, perhaps inspired by the simulations above?  
+
+```{r eval=TRUE}
+statChf = function(x){
+  sum((x[, "C"] - x[, "G"])^2 + (x[, "A"] - x[, "T"])^2)
+}
+chfstat = statChf(ChargaffTable)
+permstat = replicate(100000, {
+     permuted = t(apply(ChargaffTable, 1, sample))
+     colnames(permuted) = colnames(ChargaffTable)
+     statChf(permuted)
+})
+pChf = mean(permstat <= chfstat)
+pChf
+#histogram of our statistic statChf computed from simulations using per-row permutations of the columns
+hist(permstat, breaks = 100, main = "", col = "lavender")
+abline(v = chfstat, lwd = 2, col = "red")
+```
+
+
+#### Question  
+When computing pChf, we only looked at the values in the null distribution smaller than the observed value. Why did we do this in a one-sided way here?  
+
+### 2.7.1 Two categorical variables
+Up to now, we have visited cases where the data are taken from a sample that can be classified into different boxes: the **binomial** for Yes/No binary boxes and the **multinomial distribution** for categorical variables such as A, C, G, T.  
+
+However it might be that we measure two (or more) **categorical variables** on a set of subjects, for instance eye color and hair color. We can then cross-tabulate the counts for every combination of eye and hair color. We obtain a table of counts called a contingency table. _This concept is very useful for many biological data types_.  
+
+``` {r eval=TRUE}
+HairEyeColor[,, "Female"]
+```
+#### Question
+Explore the HairEyeColor object in R. What data type, shape and dimensions does it have?  
+
+```{r eval=TRUE}
+str(HairEyeColor)
+```
+
+Array with 3 dimensions (hair, eye colour, and sex)  
+
+#### Colour blindness and sex  
+
+```{r eval=TRUE}
+load("Deuteranopia.RData")
+``` 
+How do we test whether there is a relationship between sex and the occurrence of color blindness? We postulate the null model with two independent binomials: one for sex and one for color blindness. Under this model we can estimate all the cells’ multinomial probabilities, and we can compare the observed counts to the expected ones. This is done through the **chisq.test function** in R.  
+
+```{r eval=TRUE}
+chisq.test(Deuteranopia)
+```
+
+We’ll see another test for this type of data called **Fisher’s exact test** (also known as the hypergeometric test) in section 10.3.2. This test is widely used for testing the over-representations of certain types of genes in a list of significantly expressed ones.  
+
+### 2.7.2 A special multinomial: Hardy-Weinberg equilibrium
+
+```{r eval=TRUE}
+library("HardyWeinberg")
+#this is genotype frequency data of blood group alleles from Mourant, Kopec, and Domaniewska-Sobczak 
+data("Mourant")
+Mourant[214:216,]
+
+#put allelic frequencies into vectors
+nMM = Mourant$MM[216]
+nMN = Mourant$MN[216]
+nNN = Mourant$NN[216]
+#calculate log prob
+loglik = function(p, q = 1 - p) {
+  2 * nMM * log(p) + nMN * log(2*p*q) + 2 * nNN * log(q)
+}
+#create vector of freq
+xv = seq(0.01, 0.99, by = 0.01)
+#take log likelihood of those freqs
+yv = loglik(xv)
+#plot freq against log likelihood
+plot(x = xv, y = yv, type = "l", lwd = 2,
+     xlab = "p", ylab = "log-likelihood")
+#make like for frequency which maxes prob
+imax = which.max(yv)
+#plot max x
+abline(v = xv[imax], h = yv[imax], lwd = 1.5, col = "blue")
+#plot max y
+abline(h = yv[imax], lwd = 1.5, col = "purple")
+```
+The maximum likelihood estimate for the probabilities in the multinomial is also obtained by using the observed frequencies as in the binomial case, however the estimates have to account for the relationships between the three probabilities. We can compute ^pMM, ^pMN and ^pNN using the af function from the HardyWeinberg package.  
+
+```{r eval=TRUE}
+#compute probabilities of seeing our observed frequencies
+phat  =  af(c(nMM, nMN, nNN))
+#proporotion of M alleles in population
+phat
+#probabilities of observed MM
+pMM   =  phat^2
+#proportion of N alleles in pop
+qhat  =  1 - phat
+#expected proportion of each allele
+pHW = c(MM = phat^2, MN = 2*phat*qhat, NN = qhat^2)
+pHW
+#expected number of individuals
+sum(c(nMM, nMN, nNN)) * pHW
+```
+
+Visualize compare these expected values to our observed values.  
+```{r eval=TRUE}
+pops = c(1, 69, 128, 148, 192)
+genotypeFrequencies = as.matrix(Mourant[, c("MM", "MN", "NN")])
+HWTernaryPlot(genotypeFrequencies[pops, ],
+        markerlab = Mourant$Country[pops],
+        alpha = 0.0001, curvecols = c("red", rep("purple", 4)),
+        mcex = 0.75, vertex.cex = 1)
+```
+
+This de Finetti plot shows the points as barycenters of the three genotypes using the frequencies as weights on each of the corners of the triangle. The Hardy-Weinberg model is the red curve, the acceptance region is between the two purple lines. We see that the US is the furthest from being in HW equilibrium.  
+
+#### Question  
+Make the ternary plot as in the code above, then add the other data points to it, what do you notice?  
+You could back up your discussion using the HWChisq function.  
+
+```{r eval=TRUE}
+pops = c(1, 69, 128, 148, 192)
+genotypeFrequencies = as.matrix(Mourant[, c("MM", "MN", "NN")])
+HWTernaryPlot(genotypeFrequencies[pops, ],
+        markerlab = Mourant$Country[pops],
+        alpha = 0.0001, curvecols = c("red", rep("purple", 4)),
+        mcex = 0.75, vertex.cex = 1)
+HWTernaryPlot(genotypeFrequencies[-pops, ], alpha = 0.0001,
+   newframe = FALSE, cex = 0.5)
+```
+
+##### Question  
+Divide all total frequencies by 50, keeping the same proportions for each of the genotypes, and recreate the ternary plot.  
+What happens to the points?  
+What happens to the confidence regions and why?  
+
+
+```{r eval=TRUE}
+newgf = round(genotypeFrequencies / 50)
+HWTernaryPlot(newgf[pops, ],
+        markerlab = Mourant$Country[pops],
+        alpha = 0.0001, curvecols = c("red", rep("purple", 4)),
+        mcex = 0.75, vertex.cex = 1)
+```
+
+### 2.7.3 Concatenating several multinomials: sequence motifs and logos  
+The Kozak Motif is a sequence that occurs close to the start codon ATG of a coding region. The start codon itself always has a fixed spelling but in positions 5 to the left of it, there is a nucleotide pattern in which the letters are quite far from being equally likely.  
+
+We summarize this by giving the position weight matrix (PWM) or position-specific scoring matrix (PSSM), which provides the multinomial probabilities at every position. This is encoded graphically by the sequence logo.  
+
+```{r eval=TRUE}
+library("seqLogo")
+load("kozak.RData")
+kozak
+pwm = makePWM(kozak)
+seqLogo(pwm, ic.scale = FALSE)
+```
+
+## 2.8 Modeling sequential dependencies: Markov chains  
+
+Here, we’ll look at an important special case of dependencies between categorical variables: those that occur along a sequence (or “chain”) of categorical variables, e.g., over time or along a biopolymer.  
+
+If we want to predict tomorrow’s weather, a reasonably good guess is that it will most likely be the same as today’s weather, in addition we may state the probabilties for various kinds of possible changes. The same reasoning can also be applied in reverse: we could “predict” yesterday’s weather from today’s.. This method for weather forecasting is an example for the Markov assumption: the prediction for tomorrow only depends on the state of things today, but not on yesterday or three weeks ago (all information we could potentially use is already contained in today’s weather).  
+
+The weather example also highlights that such an assumption need not necessarily be exactly true, but it should be a good enough assumption.  
+
+_The essence of the Markov assumption is that the process has a finite “memory”, so that predictions only need to look back for a finite amount of time._  
+
+Applied to DNA: we may see specific succession of patterns so that pairs of nucleotides, called digrams, say, CG, CA, CC and CT are not equally frequent. For instance, in parts of the genome we see more frequent instances of CA than we would expect under independence:P(CA)≠P(C)P(A)  
+
+## 2.9 Bayesian Thinking  
+
+The **_Bayesian paradigm_** is a practical approach where **prior** and **posterior** distributions are used as models of our knowledge before and after collecting some data and making an observation. It is particularly useful for integrating or combining information from different sources.
+
+Suppose we have a certain hypothesis, call it H, and we want to use data to decide whether the hypothesis is true. We can formalize our prior knowledge about H in the form of a prior probability, written P(H). After we see the data, we have the posterior probability. We write it as P(H|D), the probability of H given that we saw D. This may be higher or lower than P(H), depending on what the data D were.  
+
+### Haplotypes  
+
+A haplotype is a collection of alleles (DNA sequence variants) that are spatially adjacent on a chromosome, are usually inherited together (recombination tends not to disconnect them), and thus are genetically linked. In this case we are looking at linked variants on the Y chromosome.  
+
+#### 2.9.1 Example: haplotype frequencies  
+
+```{r eval=TRUE}
+haplo6=read.table("haplotype6.txt",header = TRUE)
+haplo6
+```
+
+We need to find the underlying proportion θ of the haplotype of interest in the population of interest. We are going to consider the occurrence of a haplotype as a `success’ in a binomial distribution using collected observations.  
+
+The haplotypes created through the use of these Y-STR profiles are shared between men in the same patriarchal lineages. For these reasons it is possible that two different men share the same profile.  
+
+#### 2.9.2 Simulation study of the Bayesian paradigm for the binomial  
+
+Instead of assuming that our parameter θ has one single value, the **_Bayesian world view_** allows us to see it as a draw from a statistical distribution.  
+
+When we are looking at a parameter that expresses a proportion or a probability, and which takes its values between 0 and 1, it is convenient to use the **beta distribution**.
+
+Beta distribution function is dependent on on two parameters α and β, making it a very flexible family of distributions (so it can ‘fit’ a lot different situations).  
+
+It has a nice mathematical property: if we start with a prior belief on θ that is beta-shaped, observe a dataset of n binomial trials, then update our belief, the posterior distribution on θ will also have a beta distribution, albeit with updated parameters.  
+
+#### The distribution of Y
+
+For a given choice of θ, we know what the distribution of Y is. But what is the distribution of 
+Y if θ itself also varies according to some distribution? We call this the **_marginal distribution of Y_**.  
+
+Let's simulate that:
+
+```{r eval=TRUE}
+#generate random sample of 100 000 betas
+rtheta = rbeta(100000, 50, 350)
+#run function th across all elements of rtheta and place in vector y
+y = vapply(rtheta, function(th) {
+  rbinom(1, prob = th, size = 300)
+}, numeric(1))
+hist(y, breaks = 50, col = "orange", main = "", xlab = "")
+```
+
+#### Question
+Verify that we could have gotten the same result as in the above code chunk by using R’s vectorisation capabilities and writing rbinom(length(rtheta), rtheta, size = 300).  
+
+#### Histogram of all the thetas such that Y=40: the posterior distribution  
+So let’s now compute the posterior distribution of θ by conditioning on those outcomes where Y was 40. We compare it to the theoretical posterior, densPostTheory. We use thetas defined above in Section 2.4.
+
+```{r eval=TRUE}
+thetaPostEmp = rtheta[ y == 40 ]
+hist(thetaPostEmp, breaks = 40, col = "chartreuse4", main = "",
+  probability = TRUE, xlab = expression("posterior"~theta))
+densPostTheory  =  dbeta(thetas, 90, 610)
+lines(thetas, densPostTheory, type="l", lwd = 3)
+```
+
+## 2.10 Example: occurrence of a nucleotide pattern in a genome  
+
+Let’s look at an example of distributions of distances, which are quasi-continuous.  
+
+```{r eval=TRUE}
+library("Biostrings")
+```
+
+```{r eval=TRUE}
+library("BSgenome")
+ag = available.genomes()
+length(ag)
+ag[1:2]
+```
+
+Use E.coli to examine Shine-Dalgarno seq
+```{r eval=TRUE}
+library("BSgenome.Ecoli.NCBI.20080805")
+Ecoli
+shineDalgarno = "AGGAGGT"
+ecoli = Ecoli$NC_010473
+```
+
+We can count the Shine-Dalgarno sequence pattern occurrence in windows of width 50000 using the countPattern function.  
+
+```{r eval=TRUE}
+window = 50000
+starts = seq(1, length(ecoli) - window, by = window)
+ends   = starts + window - 1
+numMatches = vapply(seq_along(starts), function(i) {
+  countPattern(shineDalgarno, ecoli[starts[i]:ends[i]],
+               max.mismatch = 0)
+  }, numeric(1))
+table(numMatches)
+```
+
+#### Question
+What distribution might fit this table?
+_Poisson_  
+
+```{r eval=TRUE}
+library("vcd")
+gf = goodfit(numMatches, "poisson")
+summary(gf)
+distplot(numMatches, type = "poisson")
+```
+
+We can inspect the matches using the matchPattern function.  
+```{r eval=TRUE}
+sdMatches = matchPattern(shineDalgarno, ecoli, max.mismatch = 0)
+sdMatches
+```
+
+Compute the distance between matches:  
+```{r eval=TRUE}
+betweenmotifs = gaps(sdMatches)
+betweenmotifs
+```
+
+Now let’s find a model for the distribution of the gap sizes between motifs. If the motifs occur at random locations, we expect the gap lengths to follow an exponential distribution.  
+
+This is because whenever we have independent, random Bernoulli occurrences along a sequence, the gap lengths are exponential. You may be familiar with radioactive decay, where the waiting times between emissions are also exponentially distributed.  
+
+The code below assesses this assumption. If the exponential distribution is a good fit, the points should lie roughly on a straight line. The exponential distribution has one parameter, the rate, and the line with slope corresponding to an estimate from the data is also shown.
+
+```{r eval=TRUE}
+library("Renext")
+expplot(width(betweenmotifs), rate = 1/mean(width(betweenmotifs)),
+        labels = "fit")
+```
+
+#### Question  
+There appears to be a slight deviation from the fitted line in Figure 2.23 at the right tail of the distibution, i.e., for the largest values. What could be the reason?  
+
+_I'm not sure._  
+
+### 2.10.1 Modeling in the case of dependencies  
+
+Here we are going to put into practice dependency modeling using a Markov chain. We are going to look at regions of chromosome 8 of the human genome and try to discover differences between regions called CpG islands and the rest.  
+
+```{r eval=TRUE}
+library("BSgenome.Hsapiens.UCSC.hg19")
+chr8  =  Hsapiens$chr8
+CpGtab = read.table("model-based-cpg-islands-hg19.txt",
+                    header = TRUE)
+#how many cpgs are there
+nrow(CpGtab)
+#glance at cpg table
+head(CpGtab)
+#create IRanges obset with width of cpg islands on chr8
+irCpG = with(dplyr::filter(CpGtab, chr == "chr8"),
+         IRanges(start = start, end = end))
+#create a GRanges object from IRanges object with width of cpgs islands on chr8
+grCpG = GRanges(ranges = irCpG, seqnames = "chr8", strand = "+")
+genome(grCpG) = "hg19"
+
+#visualize this info on chromosome 8 from 2200000 to 5800000
+library("Gviz")
+ideo = IdeogramTrack(genome = "hg19", chromosome = "chr8")
+plotTracks(
+  list(GenomeAxisTrack(),
+    AnnotationTrack(grCpG, name = "CpG"), ideo),
+    from = 2200000, to = 5800000,
+    shape = "box", fill = "#006400", stacking = "dense")
+
+#seqs with cpg islands on chr8
+CGIview    = Views(unmasked(Hsapiens$chr8), irCpG)
+#seqs that do not contain cpg islands on chr8
+NonCGIview = Views(unmasked(Hsapiens$chr8), gaps(irCpG))
+
+#convert to DNAStrigSet so that we can apply function dinucleotideFrequency
+seqCGI      = as(CGIview, "DNAStringSet")
+seqNonCGI   = as(NonCGIview, "DNAStringSet")
+#count dinucleotide frequency
+dinucCpG    = sapply(seqCGI, dinucleotideFrequency)
+dinucNonCpG = sapply(seqNonCGI, dinucleotideFrequency)
+dinucCpG[, 1]
+dinucNonCpG[, 1]
+
+#sum counts from each section of CGI or nonCGI sequence
+NonICounts = rowSums(dinucNonCpG)
+IslCounts  = rowSums(dinucCpG)
+
+#For a four state Markov chain as we have, we define the transition matrix as a matrix where the rows are the from state and the columns are the to state.
+
+TI  = matrix( IslCounts, ncol = 4, byrow = TRUE)
+TnI = matrix(NonICounts, ncol = 4, byrow = TRUE)
+dimnames(TI) = dimnames(TnI) =
+  list(c("A", "C", "G", "T"), c("A", "C", "G", "T"))
+
+#We use the counts of numbers of transitions of each type to compute frequencies and put them into two matrices.
+#islands
+MI = TI /rowSums(TI)
+MI
+#not islands
+MN = TnI / rowSums(TnI)
+MN
+```
+
+#### Question  
+How can we use these differences to decide whether a given sequence comes from a CpG island?  
+
+Use a χ2-squared statistic to compare the frequencies between the observed and freqIsl and freqNon frequencies. For shorter sequences, this may not be sensitive enough, and a more sensitive approach is given below.  
+
+Let’s do an example: suppose our sequence x is ACGTTATACTACG, and we want to decide whether it comes from a CpG island or not:  
+
+```{r eval=TRUE}
+#frequency of bases in islands
+freqIsl = alphabetFrequency(seqCGI, baseOnly = TRUE, collapse = TRUE)[1:4]
+#freq of bases in nonislands
+freqNon = alphabetFrequency(seqNonCGI, baseOnly = TRUE, collapse = TRUE)[1:4]
+
+alpha = log((freqIsl/sum(freqIsl)) / (freqNon/sum(freqNon)))
+beta  = log(MI / MN)
+
+x = "ACGTTATACTACG"
+scorefun = function(x) {
+  s = unlist(strsplit(x, ""))
+  score = alpha[s[1]]
+  if (length(s) >= 2)
+    for (j in 2:length(s))
+      score = score + beta[s[j-1], s[j]]
+  score
+}
+scorefun(x)
+```
+
+In the code below, we pick sequences of length len = 100 out of the 2855 sequences in the seqCGI object, and then out of the 2854 sequences in the seqNonCGI object (each of them is a DNAStringSet). In the first three lines of the generateRandomScores function, we drop sequences that contain any letters other than A, C, T, G; such as “.” (a character used for undefined nucleotides). Among the remaining sequences, we sample with probabilities proportional to their length minus len and then pick subsequences of length len out of them. The start points of the subsequences are sampled uniformly, with the constraint that the subsequences have to fit in.  
+
+```{r eval=TRUE}
+generateRandomScores = function(s, len = 100, B = 1000) {
+  alphFreq = alphabetFrequency(s)
+  isGoodSeq = rowSums(alphFreq[, 5:ncol(alphFreq)]) == 0
+  s = s[isGoodSeq]
+  slen = sapply(s, length)
+  prob = pmax(slen - len, 0)
+  prob = prob / sum(prob)
+  idx  = sample(length(s), B, replace = TRUE, prob = prob)
+  ssmp = s[idx]
+  start = sapply(ssmp, function(x) sample(length(x) - len, 1))
+  scores = sapply(seq_len(B), function(i)
+    scorefun(as.character(ssmp[[i]][start[i]+(1:len)]))
+  )
+  scores / len
+}
+scoresCGI    = generateRandomScores(seqCGI)
+scoresNonCGI = generateRandomScores(seqNonCGI)
+
+#make histogram
+br = seq(-0.6, 0.8, length.out = 50)
+h1 = hist(scoresCGI,    breaks = br, plot = FALSE)
+h2 = hist(scoresNonCGI, breaks = br, plot = FALSE)
+plot(h1, col = rgb(0, 0, 1, 1/4), xlim = c(-0.5, 0.5), ylim=c(0,120))
+plot(h2, col = rgb(1, 0, 0, 1/4), add = TRUE)
+```
+
+We can consider these our training data: from data for which we know the types, we can see whether our score is useful for discriminating.  
+
+## Chapter Summary
+
+**Goodness of fit**: We used different visualizations and showed how to run simulation experiments to test whether our data could be fit by a fair four box multinomial model. We encountered the chi-square statistic and saw how to compare simulation and theory using a qq-plot.
+
+**Estimation **: We explained maximum likelihood and Bayesian estimation procedures. These approaches were illustrated on examples involving nucleotide pattern discovery and haplotype estimations.
+
+**Prior and posterior distributions**: When assessing data of a type that has been been previously studied, such as haplotypes, it can be beneficial to compute the posterior distribution of the data. This enables us to incorporate uncertainty in the decision making, by way of a simple computation. __The choice of the prior has little effect on the result as long as there is sufficient data__.
+
+**CpG islands and Markov chains**: We saw how dependencies along DNA sequences can be modeled by Markov chain transitions. We used this to build scores based on likelihood ratios that enable us to see whether long DNA sequences come from CpG islands or not. When we made the histogram of scores,it seemed to be made of two pieces. This bimodality was our first encounter with mixtures, they are the subject of Chapter 4.
+
+## 2.13 Exercises  
+
+#### Exercise 2.1 
+Generate 1,000 random 0/1 variables that model mutations occurring along a 1,000 long gene sequence. These occur independently at a rate of 10^(-4) each. Then sum the 1,000 positions to count how many mutations in sequences of length 1,000.  
+
+```{r eval=TRUE}
+sim.seq <- rbinom(1000, 1, 0.0001)
+sum(sim.seq)
+```
+
+Find the correct distribution for these mutation sums using a goodness of fit test and make a plot to visualize the quality of the fit.  
+
+#### Exercise 2.2  
+Make a function that generates n random uniform numbers between 0 and 7 and returns their maximum. Execute the function for n=25. Repeat this procedure B=100 times. Plot the distribution of these maxima.
+
+```{r eval=TRUE}
+notfun.fun <- function(n=10, min=0, max=1) {
+sadnums <- runif(n, min, max)
+maxsad <- max(sadnums)
+maxsad
+}
+rep100 <- replicate(100, notfun.fun(25, 0, 7))
+hist(rep100)
+```
+
+What is the maximum likelihood estimate of the maximum of a sample of size 25 (call it ^θ)?  
+```{r eval=TRUE}
+probs  =  seq(0, 7, length.out = 100)
+likelihood = dbinom(sum(rep100), prob = probs, size = length(rep100))
+plot(probs, likelihood, pch = 16, xlab = "probability of success",
+       ylab = "likelihood", cex=0.6)
+probs[which.max(likelihood)]
+```
+
+Can you find a theoretical justification and the true maximum θ?  
+
+#### Exercise 2.3  
+```{r eval=TRUE}
+mtb = read.table("M_tuberculosis.txt", header = TRUE)
+head(mtb, n = 4)
+
+pro  =  mtb[ mtb$AmAcid == "Pro", "Number"]
+pro/sum(pro)
+```
+
+a) Explore the data mtb using table to tabulate the AmAcid and Codon variables.  
+```{r eval=TRUE}
+table(mtb$AmAcid)
+table(mtb$Codon)
+```
+
+b) How was the PerThous variable created?  
+
+c) Write an R function that you can apply to the table to find which of the amino acids shows the strongest codon bias, i.e., the strongest departure from uniform distribution among its possible spellings.  
+
+#### Exercise 2.4  
+Display GC content in a running window along the sequence of Staphylococcus Aureus. Read in a fasta file sequence from a file. 
+
+```{r eval=TRUE}
+staph = readDNAStringSet("staphsequence.ffn.txt", "fasta")
+
+#a) Look at the complete staph object and then display the first three sequences in the set. 
+staph
+staph[1:3]
+
+#b) Find the GC content in tsequence windows of width 100. 
+
+#c) Display the GC content in a sliding window as a fraction.  
+
+```  
+d) How could we visualize the overall trends of these proportions along the sequence?  
+
+
+
+#### Exercise 2.5  
+Redo a figure similar to Figure 2.17, but include two other distributions: the uniform (which is B(1,1)) and the B(1/2,1/2). What do you notice?  
+
+```{r eval=TRUE}
+p = seq(1,1, length=100)
+plot(p, dbeta(p, 1, 100), ylab="density", type ="l", col=4)
+
+q = seq(1/2,1/2, length=100)
+plot(q, dbeta(q, 1, 100), ylab="density", type ="l", col=4)
+```
+There are constant?  
+Am I doing this right?
+
+
+#### Exercise 2.6  
+Choose your own prior for the parameters of the beta distribution. You can do this by sketching it here: https://jhubiostatistics.shinyapps.io/drawyourprior.  
+Once you have set up a prior, re-analyse the data from Section 2.9.2, where we saw Y=40 successes out of n=300 trials. Compare your posterior distribution to the one we obtained in that section using a QQ-plot.
+
+```{r eval=TRUE}
+thetaPostEmp = rtheta[ y == 40 ]
+hist(thetaPostEmp, breaks = 40, col = "chartreuse4", main = "",
+  probability = TRUE, xlab = expression("posterior"~theta))
+densPostTheory  =  dbeta(thetas, 6.47, 5.64)
+lines(thetas, densPostTheory, type="l", lwd = 3)
+
+thetaPostMC2 = rbeta(n = 1e6, 6.47, 5.64)
+mean(thetaPostMC2)
+
+qqplot(thetaPostMC2, thetaPostEmp, type = "l", asp = 1)
+abline(a = 0, b = 1, col = "blue")
+
+```
+
+This looks weird?
