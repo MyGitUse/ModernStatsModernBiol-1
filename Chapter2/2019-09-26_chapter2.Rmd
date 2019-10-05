@@ -754,11 +754,18 @@ We can consider these our training data: from data for which we know the types, 
 Generate 1,000 random 0/1 variables that model mutations occurring along a 1,000 long gene sequence. These occur independently at a rate of 10^(-4) each. Then sum the 1,000 positions to count how many mutations in sequences of length 1,000.  
 
 ```{r eval=TRUE}
-sim.seq <- rbinom(1000, 1, 0.0001)
+sim.seq <- rbinom(1000, 1000, 0.0001)
 sum(sim.seq)
 ```
 
 Find the correct distribution for these mutation sums using a goodness of fit test and make a plot to visualize the quality of the fit.  
+
+```{r eval=TRUE}
+library("vcd")
+gf1 = goodfit(sim.seq, "poisson")
+rootogram(gf1, xlab = "", rect_gp = gpar(fill = "chartreuse4"))
+```
+
 
 #### Exercise 2.2  
 Make a function that generates n random uniform numbers between 0 and 7 and returns their maximum. Execute the function for n=25. Repeat this procedure B=100 times. Plot the distribution of these maxima.
@@ -801,13 +808,17 @@ table(mtb$Codon)
 
 b) How was the PerThous variable created?  
 
+```{r eval=TRUE}
+#I don't know
+```
+
 c) Write an R function that you can apply to the table to find which of the amino acids shows the strongest codon bias, i.e., the strongest departure from uniform distribution among its possible spellings.  
 
 #### Exercise 2.4  
 Display GC content in a running window along the sequence of Staphylococcus Aureus. Read in a fasta file sequence from a file. 
 
 ```{r eval=TRUE}
-staph = readDNAStringSet("staphsequence.ffn.txt", "fasta")
+staph = readBStringSet("staphsequence.ffn.txt", format="fasta")
 
 #a) Look at the complete staph object and then display the first three sequences in the set. 
 staph
@@ -820,8 +831,6 @@ staph[1:3]
 ```  
 d) How could we visualize the overall trends of these proportions along the sequence?  
 
-
-
 #### Exercise 2.5  
 Redo a figure similar to Figure 2.17, but include two other distributions: the uniform (which is B(1,1)) and the B(1/2,1/2). What do you notice?  
 
@@ -832,7 +841,7 @@ plot(p, dbeta(p, 1, 100), ylab="density", type ="l", col=4)
 q = seq(1/2,1/2, length=100)
 plot(q, dbeta(q, 1, 100), ylab="density", type ="l", col=4)
 ```
-There are constant?  
+They are constant?  
 Am I doing this right?
 
 
