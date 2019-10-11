@@ -754,6 +754,7 @@ We can consider these our training data: from data for which we know the types, 
 Generate 1,000 random 0/1 variables that model mutations occurring along a 1,000 long gene sequence. These occur independently at a rate of 10^(-4) each. Then sum the 1,000 positions to count how many mutations in sequences of length 1,000.  
 
 ```{r eval=TRUE}
+set.seed(123456789)
 sim.seq <- rbinom(1000, 1000, 0.0001)
 sum(sim.seq)
 ```
@@ -783,7 +784,7 @@ hist(rep100)
 What is the maximum likelihood estimate of the maximum of a sample of size 25 (call it ^θ)?  
 ```{r eval=TRUE}
 probs  =  seq(0, 7, length.out = 100)
-likelihood = dbinom(sum(rep100), prob = probs, size = length(rep100))
+likelihood = dbinom(x=rep100, prob = probs, size = length(rep100))
 plot(probs, likelihood, pch = 16, xlab = "probability of success",
        ylab = "likelihood", cex=0.6)
 probs[which.max(likelihood)]
@@ -818,7 +819,7 @@ c) Write an R function that you can apply to the table to find which of the amin
 Display GC content in a running window along the sequence of Staphylococcus Aureus. Read in a fasta file sequence from a file. 
 
 ```{r eval=TRUE}
-staph = readBStringSet("staphsequence.ffn.txt", format="fasta")
+staph = readBStringSet("data/staphsequence.ffn.txt", format="fasta")
 
 #a) Look at the complete staph object and then display the first three sequences in the set. 
 staph
@@ -865,3 +866,21 @@ abline(a = 0, b = 1, col = "blue")
 ```
 
 This looks weird?
+
+
+## Notes from class
+
+#### Exercise 1
+
+
+```{r eval=TRUE}
+set.seed(123456789)
+sim.seq <- rbinom(1000, prob=0.0001, size=1000)
+sum(sim.seq)
+```
+
+Set seed before making random variable for reproducibility.  
+
+instead of vapply and lappy use purr package
+for each instead of for loops
+
