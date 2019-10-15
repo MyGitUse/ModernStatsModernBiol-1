@@ -560,7 +560,7 @@ Most genes have a similar expression to the spike in (control) RNA. Gene express
 
 The variance of a laplace distribution is dependent on its mean (except for when mean=0, such as the case with a symmetric laplace distribution). The mean-variance relationship is common in physical measurements like microarray fluorescence intensity, mass spec peak heights or read counts from next-gen sequencing.
 
-##Infinite mixtures of poisson variables: the gamma-poisson distribution
+## Infinite mixtures of poisson variables: the gamma-poisson distribution
 
 A two-level heierarchical model is often required to model real-world count data.  
 
@@ -836,7 +836,7 @@ qqplot(y=rgamma(10000, shape=ofit$par[[1]], rate=ofit$par[[2]]),
 
 #### Exercise 4.3 (Mixture modeling examples for regression)  
 
-The flexmix package (Grün, Scharl, and Leisch 2012) enables us to cluster and fit regressions to the data at the same time. The standard M-step FLXMRglm of flexmix is an interface to R’s generalized linear modeling facilities (the glm function). 
+The flexmix package (Grün, Scharl, and Leisch 2012) enables us to cluster and fit regressions to the data at the same time. The standard M-step FLXMRglm of flexmix is an interface to R’s generalized linear modeling facilities (the glm function).  
 
 ```{r eval=TRUE}
 #load data
@@ -866,15 +866,17 @@ m1 = flexmix(yn ~ x + I(x^2), data = NPreg, k = 2)
 ```{r eval=TRUE}
 #c)make a truth table that cross-classifies true classes versus cluster memberships. 
 
-#what's a truth table
+tt <- select(NPreg, class)  
+tt$cluster_membership <-  m1@cluster
+tt$class_equal_cluster <- ifelse(tt$class==tt$cluster_membership, TRUE, FALSE)
 
-
+head(tt, 20)
 
 #What does the summary of the object m1 show us?
 
 summary(m1)
 
-#the summary of m1 shows us how the data were classified prior to fitting and how they are classified after
+#the summary of m1 shows us how the data were classified prior to fitting and how they are classified after, the summary also tells us the log likelihood, bayesian information criteria (BIC) which is the used to help select the statistical model (the model with the lowest BIC is preferred), and the Akaike's Information Criteria (AIC) which is an estimator of the statistical model quality
 ```
 
 ```{r eval=TRUE}
