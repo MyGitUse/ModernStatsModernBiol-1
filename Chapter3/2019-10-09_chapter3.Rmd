@@ -695,7 +695,7 @@ ggplot(simgp, aes(x = mean, y = trsf)) +
 
 #### Exercise 4.1 (the EM algorithm)
 
-```{r eval=TRUE}
+```{r Q1, eval=TRUE}
 #load in data
 yvar = readRDS("../data/Myst.rds")$yvar
 #view data in histogram
@@ -813,7 +813,7 @@ We need to compute loglik so that we can observe how likely we our converging be
 Compare the theoretical values of the gamma-Poisson distribution with parameters given by the estimates in ofit$par in Section 4.4.3 to the data used for the estimation using a QQ-plot.
 
 
-```{r eval=T}
+```{r Q2.1, eval=T}
 #x=1st rgamma from 4.4.3 using shape 2 and rate 1/3
 #y=rgamma using ofit$par parameters
 #set.seed(1234)
@@ -827,7 +827,7 @@ qqplot(y=rgamma(10000, shape=ofit$par[[1]], rate=ofit$par[[2]]),
        x=rgamma(10000, shape = 2, rate = 1/3))
 ```
 
-```{r eval=T}
+```{r Q2.2 eval=T}
 #y=rgamma using ofit$par parameters
 #x=2nd rgamma from 4.4.3 using shape 10 and rate 3/2
 qqplot(y=rgamma(10000, shape=ofit$par[[1]], rate=ofit$par[[2]]),
@@ -838,13 +838,13 @@ qqplot(y=rgamma(10000, shape=ofit$par[[1]], rate=ofit$par[[2]]),
 
 The flexmix package (Grün, Scharl, and Leisch 2012) enables us to cluster and fit regressions to the data at the same time. The standard M-step FLXMRglm of flexmix is an interface to R’s generalized linear modeling facilities (the glm function).  
 
-```{r eval=TRUE}
+```{r Q3, eval=TRUE}
 #load data
 library(flexmix)
 data("NPreg")
 ```
 
-```{r eval=TRUE}
+```{r Q3A, eval=TRUE}
 #a) First, plot the data and try to guess how the points were generated
 
 #what does NPreg look like
@@ -858,28 +858,35 @@ nrow(NPreg)
 nrow(na.omit(NPreg)) # no NAs
 ```
 
-```{r eval=TRUE}
+```{r Q3B, eval=TRUE}
 #b) Fit a two component mixture model using the commands
 m1 = flexmix(yn ~ x + I(x^2), data = NPreg, k = 2)
 ```
 
-```{r eval=TRUE}
-#c)make a truth table that cross-classifies true classes versus cluster memberships. 
+```{r Q3C,eval=TRUE}
+#c) make a truth table that cross-classifies true classes versus cluster memberships. 
 
 tt <- select(NPreg, class)  
 tt$cluster_membership <-  m1@cluster
 tt$class_equal_cluster <- ifelse(tt$class==tt$cluster_membership, TRUE, FALSE)
 
 head(tt, 20)
+```
 
+```{r Q3D, eval=TRUE}
 #What does the summary of the object m1 show us?
 
 summary(m1)
 
-#the summary of m1 shows us how the data were classified prior to fitting and how they are classified after, the summary also tells us the log likelihood, bayesian information criteria (BIC) which is the used to help select the statistical model (the model with the lowest BIC is preferred), and the Akaike's Information Criteria (AIC) which is an estimator of the statistical model quality
+###from the package documentation
+#The summary method lists for each component the prior probability, #the number of observationsassigned to the corresponding cluster, #the number of observations with a posterior probability larger
+#than eps and the ratio of the latter two numbers (which indicates #how separated the cluster is from the others)
+#eps is indicated by the user or defaults to 1e-4
+
+#the summary of m1 shows us how the data were classified prior to #fitting and how they are classified after, the summary also tells #us the log likelihood, bayesian information criteria (BIC) which #is the used to help select the statistical model (the model with #the lowest BIC is preferred), and the Akaike's Information #Criteria (AIC) which is an estimator of the statistical model #quality
 ```
 
-```{r eval=TRUE}
+```{r Q4, eval=TRUE}
 #d) Plot the data again, this time coloring each point according to its estimated class.
 
 #see structure of m1
@@ -894,3 +901,9 @@ ggplot(NPreg, aes(x=x, y=yn)) +
 #### Exercise 4.4 (Other hierarchical noise models)  
 
 A nonparametric Bayesian approach for clustering bisulfate-based DNA methylation profiles (PMID: 23134689)
+
+Hierarchical probabilistic models for multiple gene/variant associations based on next-generation sequencing data (PMID: 28575251)  
+The above paper is very relevant and goes over methods we discussed in this chapter.
+
+Hierarchical cooperation of transcription factors from integration analysis of DNA sequences, ChIP-Seq and ChIA-PET data
+(https://bmcgenomics.biomedcentral.com/articles/10.1186/s12864-019-5535-2)
