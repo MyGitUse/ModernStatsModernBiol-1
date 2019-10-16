@@ -3,14 +3,16 @@ title: "Chapter 4: Mixture Models"
 output: html_document
 ---
 
-### Where might you see mixture data?
-* Flow cytometry
-* RNA-seq
-* ChIP-Seq
+## Where might you see mixture data?  
+* Flow cytometry  
+* RNA-seq  
+* ChIP-Seq  
 * Microbiome  
+* Biometrics
+
 Can you think of any other types of data that might be considered a mixture?  
 
-### What is mixture data?  
+## What is mixture data?  
 Data that does not original from a unimodal distribution.
 Mixture data includes data where we can detrmine the number of components - called _finite mixture data_.  
 Mixture data also includes data where the number of mixtures is equal to our number of observerations - called _infinite mixture data_.  
@@ -125,7 +127,6 @@ values_1000000 = rnorm(length(coinflips_1000000),
 #plot it to compare
 ggplot(tibble(values_1000000), aes(x = values_1000000)) +
      geom_histogram(fill = "purple", bins = 500)
-
 ```
 
 The 2 normal distributions become more distinct with a greater number of trials. Therefore, it can be taken that a larger sample allows better approximation of the number of mixtures. 
@@ -140,9 +141,9 @@ ggplot(dplyr::filter(tibble(values_1000000), coinflips_1000000), aes(x = values_
           args = list(mean = means[1], sd = sds[1]), color = "red")
 ```
 
-It looks pretty darn close to the denisty function of the normal distribution.
+It looks pretty darn close to the denisty function of the normal distribution.  
 
-We can write a general formula for density of any mixture model by suming the densities (proportionately).   
+Thus, we can write a general formula for density of any mixture model by suming the densities (proportionately).   
 
 > f(x)=1/2ϕ1(x)+12/ϕ2(x)
 
@@ -807,6 +808,14 @@ Why do we need to compute loglik?
 
 We need to compute loglik so that we can observe how likely we our converging between our "guessed" model of data and the best fit of our parameters. When the difference between loglik and loglikOld is very small, this suggests that we have reached our maximum and have found our best model for the data.  
 
+Compare the results of what we are doing to the output of the normalmixEM function from the mixtools package:
+
+```{r eval=T}
+mclusttest <- Mclust(yvar, G=2)
+summary(mclusttest)
+mclusttest$parameters
+```
+This is close to the function we just generated.  
 
 #### Exercise 4.2  
 
