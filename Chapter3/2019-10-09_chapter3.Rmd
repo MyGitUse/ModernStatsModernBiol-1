@@ -8,7 +8,7 @@ output: html_document
 * RNA-seq  
 * ChIP-Seq  
 * Microbiome  
-* Biometrics
+* Bio
 
 Can you think of any other types of data that might be considered a mixture?  
 
@@ -443,8 +443,7 @@ The true sampling distribution of a statistic ^τ is often hard to know as it re
 
 Different samples from F lead to different data, and so to different values of the estimate ^τ: this is called sampling variability. The distribution of all the ^τ’s is the sampling distribution.
 
-We reuse the data (by considering it a mixture distribution of 
-δs) to create new “datasets” by taking samples and looking at the sampling distribution of the statistics ^τ∗ computed on them. This is called the _*nonparametric bootstrap approach*_.
+We reuse the data (by considering it a mixture distribution of δs) to create new “datasets” by taking samples and looking at the sampling distribution of the statistics ^τ∗ computed on them. This is called the _*nonparametric bootstrap approach*_.
 
 Let's use bootstrapping to estimate the sampling distribution of the median of the Zea Mays differences. 
 
@@ -481,21 +480,6 @@ ggplot(tibble(zea_means2=zea_means$thetastar),aes(x = zea_means2))+
   geom_histogram(bins = 30, fill = "purple")
 ```
 
-```{r eval=TRUE}
-#create a theta function to bootstrap mean
-set.seed(1234)
-zeta <- function(x){
-  i = sample(15, 15, replace = TRUE)
-  median(ZeaMays$diff[i])
-  }
-
-#put bootstrap data into list
-zea_meds <- bootstrap(ZeaMays$diff, B, zeta)
-
-#plot bootstrap med
-ggplot(tibble(zea_meds2=zea_meds$thetastar),aes(x = zea_meds2))+
-  geom_histogram(bins = 30, fill = "purple")
-```
 
 #### Why is this bootstrapping method called nonparametric?
 Nonparametric methods are those that have infinitely many degrees of freedom or a number of unknown parameters.  
@@ -587,7 +571,7 @@ ggplot(tibble(x = rgamma(10000, shape = 10, rate = 3/2)),
    aes(x = x)) + geom_histogram(bins = 100, fill= "purple")
 ```
 
-Now, let's take our gamma distribution of (10,3/2) from above and use it to generate a gamma-poisson distribution
+2. Now, let's take our gamma distribution of (10,3/2) from above and use it to generate a gamma-poisson distribution
 
 ```{r eval=TRUE}
 set.seed(1234)
@@ -632,8 +616,6 @@ ggplot(simdat, aes(x = lambda, y = y)) +
 #data with square root transformation
 ggplot(simdat, aes(x = lambda, y = sqrt(y))) +
   geom_beeswarm(alpha = 0.6, color = "purple")
-
-
 ```
 
 

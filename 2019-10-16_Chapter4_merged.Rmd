@@ -418,18 +418,10 @@ Let's look at an example of zero-inflated data from ChIP-seq. These data are seq
 ```{r eval=TRUE}
 #construct binTFBS for chr22 data
 #binTFBS dataset = binding sites for one chromosome22
-constructBins(infile = system.file(file.path("extdata", "wgEncodeSydhTfbsGm12878Stat1StdAlnRep1_chr22_sorted.bam"), package="mosaicsExample"),
-    fileFormat = "bam", outfileLoc = "../data/",
-    byChr = FALSE, useChrfile = FALSE, chrfile = NULL, excludeChr = NULL,
-    PET = FALSE, fragLen = 200, binSize = 200, capping = 0)
 
-constructBins(infile = system.file(file.path("extdata", "wgEncodeSydhTfbsGm12878InputStdAlnRep1_chr22_sorted.bam"), package="mosaicsExample"),
-    fileFormat = "bam", outfileLoc = "../data/",
-    byChr = FALSE, useChrfile = FALSE, chrfile = NULL, excludeChr = NULL,
-    PET = FALSE, fragLen = 200, binSize = 200, capping = 0)
-datafiles = c("../data/wgEncodeSydhTfbsGm12878Stat1StdAlnRep1_chr22_sorted.bam_fragL200_bin200.txt",
-              "../data/wgEncodeSydhTfbsGm12878InputStdAlnRep1_chr22_sorted.bam_fragL200_bin200.txt")
-binTFBS = readBins(type = c("chip","input"), fileName = datafiles)
+datafiles = (here("data", c("wgEncodeSydhTfbsGm12878Stat1StdAlnRep1_chr22_sorted.bam_fragL200_bin200.txt",
+              "wgEncodeSydhTfbsGm12878InputStdAlnRep1_chr22_sorted.bam_fragL200_bin200.txt")))
+binTFBS <- readBins(type = c("chip","input"), fileName = datafiles)
 binTFBS
 
 #create histogram for binTFBS
@@ -563,4 +555,536 @@ We reuse the data (by considering it a mixture distribution of δs) to create ne
 
 ![](https://www.statisticshowto.datasciencecentral.com/wp-content/uploads/2016/10/bootstrap-sample.png)
 
+Let's use bootstrapping to estimate the sampling distribution of the median of the Zea Mays differences. 
+
+```{r eval=TRUE}
+B = 1000
+#draw 1000 samples of size 15 from the 15 values
+#compute the 1000 medians of each of these samples of 15 values
+set.seed(1234)
+meds = replicate(B, {
+  i = sample(15, 15, replace = TRUE)
+  median(ZeaMays$diff[i])
+})
+#look at the disribution
+ggplot(tibble(medians = meds), aes(x = medians)) +
+  geom_histogram(bins = 30, fill = "purple")
+```
+Estimate a 99% confidence interval for the median based on these simulations. What can you conclude from looking at the overlap between this interval and 0?  
+
+```{r}
+# ???? - Bootstrap percentile/quantile method
+  # 99% CI means 100%-99% = trim 1% off ends of the distribution (0.5% each upper/lower = 0.005)
+  # In quantiles this equates to 0.005 quantile & 1-0.005 = 0.995
+  # The conclusion = IDK
+quantile(meds,c(0.005,0.995))
+```
+
+* **Confidence Intervals**
+  * The uncertainty to any statistic (piece of data from a portion of a population - ex) look at part of data set = statistic)
+  * CI often used w/ margin of error -> tells how confident that <u>results of sample </u> reflects results if collected from entire population
+  * Confidence levels expressed in %
+    * Interprets to if you repeat an experiment iteratively, then % of times will match results obtained from a population 
+    * Statistic vs Parameter
+       * Parameter = all information, Statistic = partial information
+
+Use the bootstrap package to redo the same analysis using the function bootstrap for both median and mean. What differences do you notice between the sampling distribution of the mean and the median?
+
+```{r eval=TRUE}
+#create a theta function to bootstrap mean
+set.seed(1234)
+theta <- function(x){
+  i = sample(15, 15, replace = TRUE)
+  mean(ZeaMays$diff[i])
+  }
+
+#put bootstrap data into list
+zea_means <- bootstrap(ZeaMays$diff, B, theta)
+
+#plot bootstrap means
+ggplot(tibble(zea_means2=zea_means$thetastar),aes(x = zea_means2))+
+  geom_histogram(bins = 30, fill = "purple")
+```
+
+## Why is this bootstrapping method called nonparametric?
+Nonparametric methods are those that have infinitely many degrees of freedom or a number of unknown parameters.  
+
+A sample does not have to have an infinite number of parameters to be become nonparametic. When the number of parameters becomes as large or larger than the amount of data available, we say the method is nonparametric.
+
+When using nonparametric methods we often replace calculations via simulations (ex. bootstrap) instead of generating all possible samples from emperical distribution. <mark style='background-color:yellow'>Use Monte Carlo simulation to make bootstrap resamples of data. </mark>  
+
+* Q) If sample has n=3 different values, how many different bootstrap resamples are possible?
+  * Repeat this solution using n=15
+* A) Set of all bootstrap resamples = set of all vectors of n integers (sum is n)
+  * Denoted by k=(k1, k2,...,kn) is the #of times the observations (x1, x2,...,xn) occur in a bootstrap sample
+    * each k is a box (similar to multinomial distribtuion)
+      * n boxes to drop n balls
+  * Can count #configurations via counting #of ways separating n balls into boxes
+    * ex) write down n times (a ball) & n-1 times (a separator (|)) between them
+      * So 2n-1 posiions to fill
+        * Must choose either ball or separator 
+    * If n=3
+      * Possible placement would be ball/ball/|/|/ball (5 positions filled by ball/separator)-> k=(2,0,1)
+        * n=ball, n-1=separator so 3 balls & 2 separators -> vector of n=3, 2 balls in 1st pos, 1 ball in last
+  * In general this number is 
+  
+\begin{equation}
+{2n-1} \choose {n-1}
+\end{equation}
+
+```{r}
+# A) n=3 & n=15 -> nCr
+  # 2n-1 when n=3 -> 5 == n total number of positions to be filled
+  # k = n = 3 number of samples taken in one iteration
+c(N3=choose(n=5,k=3), N15=choose(29,15))
+```
+
+![](https://getcalc.com/formula/statistics/combinations.png)
+
+* permutations = ordering of objects -> n!
+  * nPr -> out of n objects, how many ways to pick r of n objects **Order is important**
+  * nCr -> same as nPr but **Order is not important**
+  
+* Q) What are two types of errors that can occur when using the bootstrap method in the `bootstrap` package?
+  * What parameter can you change to improve one of the errors?
+
+* A) Errors
+  * Error1: Monte Carlo simulations of subsets of data via random resampling used to approximate exhaustive bootstrap
+    * By increasing the size of `nboot` argument of `boostrap()` -> this reduces Monte Carlo error
+      * **Keep in mind, exhaustive boostrap is still no exact** b/c using approximate distribution function of data instead of true distribution
+  * Error2: If sample size is small or original sample is biased - approximation will be poor
+    * Doesn't matter how large `nboot` is - this can't resolve the problem
+  * `nboot in bootstrap()` is the number of iterations/sampling desired
+  
+  
+## Infinite Mixtures 
+
+If the number of mixture components is as big as (or bigger than) the number of observations, we say we have an infinite mixture.  
+
+### Infinite mixture of normals
+Let's generate an infinite mixture using 2 levels of data generation.
+
+```{r eval=T}
+#level 1
+#generate 10000 random deviates from the exponential distribution with rate (ie. mean) equal to 1
+#Create a sample w from an exponential distribution
+w = rexp(10000, rate = 1)
+
+#level 2
+#The w vector serves as the variances of normal variables with mean μ (mu) generated using rnorm
+mu  = 0.3
+lps = rnorm(length(w), mean = mu, sd = sqrt(w))
+
+#plot the data
+ggplot(data.frame(lps), aes(x = lps)) +
+  geom_histogram(fill = "purple", binwidth = 0.1)
+```
+
+This is called a *Laplace distribution* and is useful because **the median is a good estimator of its location parameter θ** and that the **median absolute deviation can be used to estimate its scale parameter ϕ**.
+
+\begin{equation}
+f_Y(y)=\frac{1}{2\phi}\exp\left(-\frac{|y-\theta|}{\phi}\right),\qquad\phi>0
+\end{equation}
+
+* Lapace density
+  * Knew the above equation (probability density) has median as a location parameter (theta) & median absolute deviation is the scale parameter (Ф)
+  * From this formula
+    * L1 (absolute value of difference) Distance has similar position in Laplace density as
+    * L2 (square of difference) in the normal density 
+    
+* Note, in Bayesian regression using Laplace distribution as a prior on the coefficients
+  * Causes an L1 penalty -> lasso
+  * If Normal distribution as a prior, it will cause a L2 penalty -> ridge regression
+
+### Asymmetric laplace
+In the Laplace distribution, the variances of the normal components depend on W, while the means are unaffected. A useful extension adds another parameter θ that controls the locations or centers of the components.
+
+```{r eval=TRUE}
+# Make `alps` dataset - use hierarchical model w/ (W) as exponential variable -> varience of normal
+# generate (w) from exponential distribution of mean 1 rexp(rate=1)
+# N(θ+wμ,σw)
+
+mu = 0.3; sigma = 0.4; theta = -1
+w  = rexp(10000, 1)
+alps = rnorm(length(w), theta + mu * w, sigma * sqrt(w))
+
+#plot asymmetric laplace
+ggplot(tibble(alps), aes(x = alps)) +
+  geom_histogram(fill = "purple", binwidth = 0.1)
+```
+
+This is a scale mixture of many normal w/ means & variences dependent (X~AL(theta, mu, sigma)). Hierarchical mixture distributions where every instance of the data has its own mean and variance (such as the above), are useful models in many biological settings. The length of promotors in yeast follow an asymmetric laplace distribution.
+
+![Microarray log-ratio gene expression](../images/tcellhist.png)
+
+The above distribution is generated from the log-ratio of gene expression values from a microarray. How would one explain that the data have a histogram of this form?  
+
+Biological interpretation: Most genes have a similar expression to control RNA. More genes are downregulated than upregulated.
+
+Statistical interpretation: A sharper curve seems to indicate that scale parameter is <0, other than that we aren't sure.
+
+The variance of a laplace distribution is dependent on its mean (except for when mean=0, such as the case with a symmetric laplace distribution). The mean-variance relationship is common in physical measurements like microarray fluorescence intensity, mass spec peak heights or read counts from next-gen sequencing.
+
+Laplace distribution shows that considering generative process can show how varience & mean are linked - expectation & varience of asymmetic Laplace distribution AL(theta, mu, sigma):
+
+\begin{equation}
+E(Y) = \theta + \mu \quad\quad\text{and}\quad\quad\text{var}(Y)=\sigma^2+\mu^2.
+\tag{4.7}
+\end{equation}
+
+## Infinite mixtures of poisson variables: the gamma-poisson distribution
+
+A two-level heierarchical model is often required to model real-world count data.  
+
+For example, supposed we are interested in the variations of fishes in all lakes across Manitoba. We would sample the fish species in each leak to estimate their true abundance. This measurement could be modeled by a Poisson distribution. However, their true abundances will vary from lake to lake. If we were interested in examining if climate plays a role (North vs South), we would have to separate the effect of climate from the random lake to lake variation. Then we can model the Poisson rate parameters (λ) as a distribution of different rates. 
+
+Such a hierarchical is advantageous because it allows us to add more steps in if we wish. For example, we could look at many fish species, and model environmental factors separately 
+
+The Gamma-Poisson mixture is a two-level hierarchical model. The steps to generating at Gamma-Poisson mixture are as follows:
+1. Generate a set of parameters: λ1, λ2,.. from a gamma distribution.
+
+The gamma distribution is an extension of the (one-parameter) exponental distribution. It has two parameters: scale and shape. The two parameters make this distribution more flexible and make it a useful building block in heirarchical models. It is positive valued and continued, and density is at a finite value.
+
+```{r eval=TRUE}
+#Let's plot some gamma distributions
+
+#this is a gamma(2,1/3) distribution
+ggplot(tibble(x = rgamma(10000, shape = 2, rate = 1/3)),
+   aes(x = x)) + geom_histogram(bins = 100, fill= "purple")
+
+set.seed(1234)
+#this is a gamma(10,3/2) distribution
+ggplot(tibble(x = rgamma(10000, shape = 10, rate = 3/2)),
+   aes(x = x)) + geom_histogram(bins = 100, fill= "purple")
+```
+
+Different Poisson rate parameters(lambda) - can be modelled as coming from a distribution of rates
+
+2. Now, let's take our gamma distribution of (10,3/2) from above and use it to generate a gamma-poisson distribution
+
+```{r eval=TRUE}
+set.seed(1234)
+lambda = rgamma(10000, shape = 10, rate = 3/2)
+gp = rpois(length(lambda), lambda = lambda)
+ggplot(tibble(x = gp), aes(x = x)) +
+  geom_histogram(bins = 100, fill= "purple")
+```
+
+As we can see, the Gamma-Poisson distribution is a discrete distribution.
+
+Another name for the Gamma-Poisson distribution is the *negative binomial distribution*.
+  * Formula for equation is similar to binomial distribution
+  * Gamma-Poisson is more defining of the underlying principles
+
+```{r eval=TRUE}
+ofit = goodfit(gp, "nbinomial")
+plot(ofit, xlab = "")
+ofit$par
+```
+
+## Choosing a data transformation based on a mixture model of your data: variance stabilizing transformations 
+
+In order to visual whether (and how well) we observe any true differences between our samples/replicates, we must control for the variability in our repeated measure of the same value. 
+
+Data that are represented by a hierarchical model typically have heterogenous variances. We can stabilize this sort of variance with a transformation
+
+Let's look at example of a square root transformation on a series of poisson distributions:
+
+```{r eval=TRUE}
+#our lambdas for generation our poisson distributions
+set.seed(1234)
+lambdas = seq(100, 900, by = 100)
+
+
+simdat = lapply(lambdas, function(l)
+    tibble(y = rpois(n = 40, lambda=l), lambda = l)
+  ) %>% bind_rows
+
+#data without transformation
+ggplot(simdat, aes(x = lambda, y = y)) +
+  geom_beeswarm(alpha = 0.6, color = "purple")
+#data with square root transformation
+ggplot(simdat, aes(x = lambda, y = sqrt(y))) +
+  geom_beeswarm(alpha = 0.6, color = "purple")
+```
+
+The graph on the left showsheteroscedasticity: the standard deviations (or, equivalently, the variance) of our data is different in different regions of our data space. In particular, it increases along the x-axis, with the mean. 
+
+For the Poisson distribution, the standard deviation is the square root of the mean. When we apply the square root transformation to the y-variables on the right graph, then the transformed variables have approximately the same variance.
+
+Here is the same data with our square root transformation but in a table format. 
+
+```{r eval=TRUE}
+summarise(group_by(simdat, lambda), sd(y), sd(2*sqrt(y)))
+```
+
+What happens if we repeat the above with a larger number of replicates?
+
+```{r eval=TRUE}
+
+set.seed(1234)
+lambdas = seq(100, 900, by = 100)
+
+simdat2 = lapply(lambdas, function(l)
+    tibble(y = rpois(n = 1000, lambda=l), lambda = l)
+  ) %>% bind_rows
+
+summarise(group_by(simdat2, lambda), sd(y), sd(2*sqrt(y)))
+```
+There is even less variation after square root transformation.
+
+What about a gamma-poisson distribution?
+
+```{r eval=TRUE}
+#enerate gamma-Poisson variables u
+muvalues = 2^seq(0, 10, by = 1)
+simgp = lapply(muvalues, function(mu) {
+  u = rnbinom(n = 1e4, mu = mu, size = 4)
+  tibble(mean = mean(u), sd = sd(u),
+         lower = quantile(u, 0.025),
+         upper = quantile(u, 0.975),
+         mu = mu)
+  } ) %>% bind_rows
+head(as.data.frame(simgp), 2)
+
+#and plot the 95% confidence intervals around the mean
+ggplot(simgp, aes(x = mu, y = mean, ymin = lower, ymax = upper)) +geom_point() + geom_errorbar()
+
+```
+How can be transform these data to normalize their standard deviation?  
+
+divide the values that correspond to mu[1] (and which are centered around mean[1]) by their standard deviation sd[1], the values that correspond to mu[2] (and which are centered around mean[2]) by their standard deviation sd[2], and so on, then the resulting values will have, by construction, a standard deviation (and thus variance) of 1.
+
+```{r eval=TRUE}
+simgp = mutate(simgp,
+  slopes = 1 / sd,
+  trsf   = cumsum(slopes * mean))
+ggplot(simgp, aes(x = mean, y = trsf)) +
+  geom_point() + geom_line() + xlab("")
+```
+
+## Exercises
+
+#### Exercise 4.1 (the EM algorithm)
+
+```{r Q1, eval=TRUE}
+#load in data
+yvar = readRDS("../data/Myst.rds")$yvar
+#view data in histogram
+ggplot(tibble(yvar), aes(x = yvar)) + geom_histogram(binwidth=0.025)
+#explore the structure of the data
+str(yvar)
+```
+```{r eval=TRUE}
+
+#we want to model the data in yvar as a mixture of 2 normal #distributions with components A and B 
+
+#create a random uniform distribution equal to the length of yvar (1000) with each entry equal to the probability of that data point belonging to component
+pA = runif(length(yvar))
+#make another numeric vector with probabilities of belonging to pB
+pB = 1 - pA
+
+#counter for iterations of the EM algorithm
+iter = 0
+#stores the current log-likelihood
+loglik = -Inf
+#stores the change in the log-likelihood from the previous iteration to the current one
+delta = +Inf
+tolerance = 1e-3
+miniter = 50; maxiter = 1000
+
+#run this loop until delta converges upon tolerance
+#continuing running while inter is less than or equal to 1000 or less than 50 
+while((delta > tolerance) && (iter <= maxiter) || (iter < miniter)) {
+  #THIS IS THE E-STEP
+  #lamda is the mixture fraction 
+  lambda = mean(pA)
+  #set mean for component A
+  muA = weighted.mean(yvar, pA)
+  #set mean for component B
+  muB = weighted.mean(yvar, pB)
+  #calculate standard deviation for component A
+  sdA = sqrt(weighted.mean((yvar - muA)^2, pA))
+  #calculate standard deviation for component B
+  sdB = sqrt(weighted.mean((yvar - muB)^2, pB))
+  
+  #THIS IS THE M-STEP
+  #the density of group A
+  phiA = dnorm(yvar, mean = muA, sd = sdA)
+  #the density of group B
+  phiB = dnorm(yvar, mean = muB, sd = sdB)
+  #formula for density fraction made up by A
+  pA   = lambda * phiA
+  #formula for density fraction made up by B
+  pB   = (1 - lambda) * phiB
+  #formula for density of mixture
+  ptot = pA + pB
+  
+  pA   = pA / ptot
+  pB   = pB / ptot
+
+  loglikOld = loglik
+  loglik = sum(log(pA))
+  delta = abs(loglikOld - loglik)
+  iter = iter + 1
+}
+param = tibble(group = c("A","B"), mean = c(muA,muB), sd = c(sdA,sdB))
+param
+iter
+```
+Which lines correspond to the E-step, which to the M-step?  
+
+The basic outline of the EM procedure is as follows:  
+(found on https://www.statisticshowto.datasciencecentral.com/em-algorithm-expectation-maximization/)
+
+1. An initial guess is made for the model’s parameters and a probability distribution is created. This is sometimes called the “E-Step” for the “Expected” distribution.
+2. Newly observed data is fed into the model.
+3. The probability distribution from the E-step is tweaked to include the new data. This is sometimes called the “M-step.”
+4. Steps 2 through 4 are repeated until stability (i.e. a distribution that doesn’t change from the E-step to the M-step) is reached.
+
+The E-step includes the lines where we set the probability that each data point belongs to component A or B as well as the lines where we calculate lamda, muA, muB, sdA, and sdB. This step incorporates pA and pB which were revised in the M-Step.
+
+>  lambda = mean(pA)
+>  muA = weighted.mean(yvar, pA)
+>  muB = weighted.mean(yvar, pB)
+>  sdA = sqrt(weighted.mean((yvar - muA)^2, pA))
+>  sdB = sqrt(weighted.mean((yvar - muB)^2, pB))
+
+The maximum-likelihood estimation (MLE) is used to estimate the means for each group based on group density and mixture fraction and can be split into 2 equations and solved separately. The M-step includes:
+ 
+>  phiA = dnorm(yvar, mean = muA, sd = sdA)
+>  phiB = dnorm(yvar, mean = muB, sd = sdB)
+>  pA   = lambda * phiA
+>  pB   = (1 - lambda) * phiB
+>  ptot = pA + pB
+>  
+>  pA   = pA / ptot
+>  pB   = pB / ptot
+
+What does the M-step do, what does the E-step do?
+
+The M-step takes the "unknown" parameters generated from the E step and uses them to modify the "known" parameters (probability of belong to group A or B).
+
+The E-step takes our known parameters (probability of belong to group A or B) and uses these parameters to generate the missing (mean, standard deviation) for our function.
+
+What is the role of the algorithm arguments tolerance, miniter and maxiter?
+
+Tolerance represents minimum loglikelihood required for us to be confident that we have found a suitable suitable paramaters to model our data. 
+
+Miniter is the minimum number of times that we must interate between the E and M steps.
+
+Maxiter is the maximum number of times we are allowed to interate between our E and M steps. If we reach Maxiter, this may suggest that are initial model (2 components) is not sufficient to explain our data.
+
+Why do we need to compute loglik?
+
+We need to compute loglik so that we can observe how likely we our converging between our "guessed" model of data and the best fit of our parameters. When the difference between loglik and loglikOld is very small, this suggests that we have reached our maximum and have found our best model for the data.  
+
+Compare the results of what we are doing to the output of the normalmixEM function from the mixtools package:
+
+```{r eval=T}
+mclusttest <- Mclust(yvar, G=2)
+summary(mclusttest)
+mclusttest$parameters
+```
+This is close to the function we just generated.  
+
+#### Exercise 4.2  
+
+Compare the theoretical values of the gamma-Poisson distribution with parameters given by the estimates in ofit$par in Section 4.4.3 to the data used for the estimation using a QQ-plot.
+
+
+```{r Q2.1, eval=T}
+#x=1st rgamma from 4.4.3 using shape 2 and rate 1/3
+#y=rgamma using ofit$par parameters
+#set.seed(1234)
+#lambda = rgamma(10000, shape = 10, rate = 3/2)
+#gp = rpois(length(lambda), lambda = lambda)
+#ofit = goodfit(gp, "nbinomial")
+#plot(ofit, xlab = "")
+#ofit$par
+
+qqplot(y=rgamma(10000, shape=ofit$par[[1]], rate=ofit$par[[2]]),
+       x=rgamma(10000, shape = 2, rate = 1/3))
+```
+
+```{r Q2.2 eval=T}
+#y=rgamma using ofit$par parameters
+#x=2nd rgamma from 4.4.3 using shape 10 and rate 3/2
+qqplot(y=rgamma(10000, shape=ofit$par[[1]], rate=ofit$par[[2]]),
+       x=rgamma(10000, shape = 10, rate = 3/2))
+```
+
+#### Exercise 4.3 (Mixture modeling examples for regression)  
+
+The flexmix package (Grün, Scharl, and Leisch 2012) enables us to cluster and fit regressions to the data at the same time. The standard M-step FLXMRglm of flexmix is an interface to R’s generalized linear modeling facilities (the glm function).  
+
+```{r Q3, eval=TRUE}
+#load data
+library(flexmix)
+data("NPreg")
+```
+
+```{r Q3A, eval=TRUE}
+#a) First, plot the data and try to guess how the points were generated
+
+#what does NPreg look like
+head(NPreg)
+#plot x and yn for npreg
+ggplot(NPreg, aes(x=x, y=yn)) +
+  geom_point() #looks like a sideways X or chromosome
+
+#count number of points
+nrow(NPreg) 
+nrow(na.omit(NPreg)) # no NAs
+```
+
+```{r Q3B, eval=TRUE}
+#b) Fit a two component mixture model using the commands
+m1 = flexmix(yn ~ x + I(x^2), data = NPreg, k = 2)
+```
+
+```{r Q3C,eval=TRUE}
+#c) make a truth table that cross-classifies true classes versus cluster memberships. 
+
+tt <- select(NPreg, class)  
+tt$cluster_membership <-  m1@cluster
+tt$class_equal_cluster <- ifelse(tt$class==tt$cluster_membership, TRUE, FALSE)
+
+head(tt, 20)
+```
+
+```{r Q3D, eval=TRUE}
+#What does the summary of the object m1 show us?
+
+summary(m1)
+
+###from the package documentation
+#The summary method lists for each component the prior probability, #the number of observationsassigned to the corresponding cluster, #the number of observations with a posterior probability larger
+#than eps and the ratio of the latter two numbers (which indicates #how separated the cluster is from the others)
+#eps is indicated by the user or defaults to 1e-4
+
+#the summary of m1 shows us how the data were classified prior to #fitting and how they are classified after, the summary also tells #us the log likelihood, bayesian information criteria (BIC) which #is the used to help select the statistical model (the model with #the lowest BIC is preferred), and the Akaike's Information #Criteria (AIC) which is an estimator of the statistical model #quality
+```
+
+```{r Q4, eval=TRUE}
+#d) Plot the data again, this time coloring each point according to its estimated class.
+
+#see structure of m1
+str(m1)
+
+#plot with colour based on fitting classification
+ggplot(NPreg, aes(x=x, y=yn)) +
+  geom_point(aes(colour=as.factor(m1@cluster)))
+```
+
+
+#### Exercise 4.4 (Other hierarchical noise models)  
+
+A nonparametric Bayesian approach for clustering bisulfate-based DNA methylation profiles (PMID: 23134689)
+
+Hierarchical probabilistic models for multiple gene/variant associations based on next-generation sequencing data (PMID: 28575251)  
+The above paper is very relevant and goes over methods we discussed in this chapter.
+
+Hierarchical cooperation of transcription factors from integration analysis of DNA sequences, ChIP-Seq and ChIA-PET data
+(https://bmcgenomics.biomedcentral.com/articles/10.1186/s12864-019-5535-2)
 
