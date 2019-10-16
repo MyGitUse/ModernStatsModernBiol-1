@@ -664,7 +664,7 @@ ggplot(simgp, aes(x = mu, y = mean, ymin = lower, ymax = upper)) +geom_point() +
 ```
 How can be transform these data to normalize their standard deviation?  
 
-divide the values that correspond to mu[1] (and which are centered around simgp$mean[1]) by their standard deviation simgp$sd[1], the values that correspond to mu[2] (and which are centered around simgp$mean[2]) by their standard deviation simgp$sd[2], and so on, then the resulting values will have, by construction, a standard deviation (and thus variance) of 1.
+divide the values that correspond to mu[1] (and which are centered around mean[1]) by their standard deviation sd[1], the values that correspond to mu[2] (and which are centered around mean[2]) by their standard deviation sd[2], and so on, then the resulting values will have, by construction, a standard deviation (and thus variance) of 1.
 
 ```{r eval=TRUE}
 simgp = mutate(simgp,

@@ -961,37 +961,50 @@ The maximum-likelihood estimation (MLE) is used to estimate the means for each g
 >  pA   = pA / ptot
 >  pB   = pB / ptot
 
-What does the M-step do, what does the E-step do?
+1. What does the M-step do, what does the E-step do?
 
-The M-step takes the "unknown" parameters generated from the E step and uses them to modify the "known" parameters (probability of belong to group A or B).
+The M-step takes the "unknown" parameters generated from the E step and uses them to modify/update the "known" parameters (probability of belong to group A or B).
 
 The E-step takes our known parameters (probability of belong to group A or B) and uses these parameters to generate the missing (mean, standard deviation) for our function.
 
-What is the role of the algorithm arguments tolerance, miniter and maxiter?
+2. What is the role of the algorithm arguments tolerance, miniter and maxiter?
 
-Tolerance represents minimum loglikelihood required for us to be confident that we have found a suitable suitable paramaters to model our data. 
-
+Tolerance represents the minimum difference between log-likelihood estimates needed to loop. 
 Miniter is the minimum number of times that we must interate between the E and M steps.
+Maxiter is the maximum number of times we are allowed to interate between our E and M steps.
 
-Maxiter is the maximum number of times we are allowed to interate between our E and M steps. If we reach Maxiter, this may suggest that are initial model (2 components) is not sufficient to explain our data.
+Class question: How do you think the authors determined tolerance? Is it always the same? Does it change? Is it related to a p-value? Thoughts?
 
-Why do we need to compute loglik?
+3. Why do we need to compute loglik?
 
 We need to compute loglik so that we can observe how likely we our converging between our "guessed" model of data and the best fit of our parameters. When the difference between loglik and loglikOld is very small, this suggests that we have reached our maximum and have found our best model for the data.  
 
-Compare the results of what we are doing to the output of the normalmixEM function from the mixtools package:
+ * The `loglik` variable stores the current log-likelihood value of mixture model which estimates that the current parameters (lambda, mu, sd) are maximized to represent data
+    * the `loglik` value updates per iteration based upon sum(log(probabilities for component A)) which is changed per E-step iteration
+    * This allows us to calculate delta, which is the difference between the previous iteration loglikelihood vs current itertion loglikelihood
+      * Once delta becomes lower than the tolerance (ie) Previous iteration loglikelihood < current loglikelihood) that's an assumptuion  that the E & M-step converges and there is no benefit for further estimation
 
-```{r eval=T}
+
+5. Compare the results of what we are doing to the output of the normalmixEM function from the mixtools package:
+
+```{re mixtoolsQ, eval=T}
+mixtoolsQ <- normalmixEM(x=yvar, k=2, maxit=1000)
+paste(mixtoolsQ$mu, "these are the maximized mean estimates")
+paste(mixtoolsQ$sigma, "these are the maximized lambda estimates")
+paste(mixtoolsQ$loglik, "this is the MLE")
+```
+
+```{r mclustQ, eval=T}
 mclusttest <- Mclust(yvar, G=2)
 summary(mclusttest)
 mclusttest$parameters
 ```
-This is close to the function we just generated.  
+
+These paramters are close to the parameters of the function we just generated.  
 
 #### Exercise 4.2  
 
 Compare the theoretical values of the gamma-Poisson distribution with parameters given by the estimates in ofit$par in Section 4.4.3 to the data used for the estimation using a QQ-plot.
-
 
 ```{r Q2.1, eval=T}
 #x=1st rgamma from 4.4.3 using shape 2 and rate 1/3
@@ -1003,6 +1016,15 @@ Compare the theoretical values of the gamma-Poisson distribution with parameters
 #plot(ofit, xlab = "")
 #ofit$par
 
+#rgamma(1e4, shape=2, rate=1/3)
+#lambda <- rgamma(1e4, shape=10, rate=3/2)
+#gp <- rpois(length(lambda), lambda = lambda), where length = 1e4 & lambda = above set of generated lambda
+ofit$par
+qqplot(qnbinom(p=ppoints(1e4), size=ofit$par[[1]], prob=ofit$par[[2]]), rgamma(1e4, shape=2, rate=1/3), main="",
+       xlab = "gamma-Poisson size=9.687, prob=0.593", asp=1, cex=0.5, pch=16)
+abline(a=0,b=1,col="red")
+
+
 qqplot(y=rgamma(10000, shape=ofit$par[[1]], rate=ofit$par[[2]]),
        x=rgamma(10000, shape = 2, rate = 1/3))
 ```
@@ -1010,8 +1032,12 @@ qqplot(y=rgamma(10000, shape=ofit$par[[1]], rate=ofit$par[[2]]),
 ```{r Q2.2 eval=T}
 #y=rgamma using ofit$par parameters
 #x=2nd rgamma from 4.4.3 using shape 10 and rate 3/2
+qqplot(qnbinom(p=ppoints(1e4), size=ofit$par[[1]], prob=ofit$par[[2]]), rgamma(1e4, shape=10, rate=3/2), main="",xlab = "gamma-Poisson size=9.687, prob=0.593", asp=1, cex=0.5, pch=16) + abline(a=0,b=1,col="blue")
+
+
 qqplot(y=rgamma(10000, shape=ofit$par[[1]], rate=ofit$par[[2]]),
-       x=rgamma(10000, shape = 10, rate = 3/2))
+       x=rgamma(10000, shape = 10, rate = 3/2)) 
+
 ```
 
 #### Exercise 4.3 (Mixture modeling examples for regression)  
@@ -1032,11 +1058,13 @@ head(NPreg)
 #plot x and yn for npreg
 ggplot(NPreg, aes(x=x, y=yn)) +
   geom_point() #looks like a sideways X or chromosome
-
-#count number of points
-nrow(NPreg) 
-nrow(na.omit(NPreg)) # no NAs
 ```
+
+Sam's artistic answer: They made it to look like a chromosome.
+
+Nelson's more math based answer: Based on the generated graph it seems you can separate the points into a vertical parabola and linear line.
+
+The chapter's answer: A simple artificial regression example with 2 latent classes, one independent variable (uniform on [0,10]), and three dependent variables with Gaussian, Poisson and Binomial distribution, respectively (generated using the command ?NPreg)
 
 ```{r Q3B, eval=TRUE}
 #b) Fit a two component mixture model using the commands
@@ -1046,11 +1074,22 @@ m1 = flexmix(yn ~ x + I(x^2), data = NPreg, k = 2)
 ```{r Q3C,eval=TRUE}
 #c) make a truth table that cross-classifies true classes versus cluster memberships. 
 
+#Sam's solution
+#good for looking at each observation independently
 tt <- select(NPreg, class)  
 tt$cluster_membership <-  m1@cluster
 tt$class_equal_cluster <- ifelse(tt$class==tt$cluster_membership, TRUE, FALSE)
-
 head(tt, 20)
+
+#Nelson's/Texbook solution
+#good for looking at data as a whole
+
+#There were 95 cells classified as group 1 and clustered as group 1
+#5 cells were classified as group 1 but clustered as group 2
+#5 cells were classified as group 2 but clustered as group 1
+# 95 cells were classifed as group 2 and clustered as group 2
+#overall 95% of cells were classified correctly
+table(NPreg$class, clusters(m1))
 ```
 
 ```{r Q3D, eval=TRUE}
@@ -1059,11 +1098,16 @@ head(tt, 20)
 summary(m1)
 
 ###from the package documentation
-#The summary method lists for each component the prior probability, #the number of observationsassigned to the corresponding cluster, #the number of observations with a posterior probability larger
-#than eps and the ratio of the latter two numbers (which indicates #how separated the cluster is from the others)
+#The summary method lists for each component the prior probability, 
+#the number of observationsassigned to the corresponding cluster, 
+#the number of observations with a posterior probability larger
+#than eps and the ratio of the latter two numbers (which indicates how separated the cluster is from the others)
 #eps is indicated by the user or defaults to 1e-4
 
-#the summary of m1 shows us how the data were classified prior to #fitting and how they are classified after, the summary also tells #us the log likelihood, bayesian information criteria (BIC) which #is the used to help select the statistical model (the model with #the lowest BIC is preferred), and the Akaike's Information #Criteria (AIC) which is an estimator of the statistical model #quality
+#the summary of m1 shows us how the data were classified prior to 
+#fitting and how they are classified after, the summary also tells 
+#us the log likelihood, bayesian information criteria (BIC) which 
+#is the used to help select the statistical model (the model with the lowest BIC is preferred), and the #Akaike's Information #Criteria (AIC) which is an estimator of the statistical model #quality
 ```
 
 ```{r Q4, eval=TRUE}
@@ -1072,11 +1116,12 @@ summary(m1)
 #see structure of m1
 str(m1)
 
-#plot with colour based on fitting classification
-ggplot(NPreg, aes(x=x, y=yn)) +
-  geom_point(aes(colour=as.factor(m1@cluster)))
+#plot with colour (based on fitting classification) and shape (based on true group prior to fitting)
+NPreg = mutate(NPreg, gr = factor(class))
+ggplot(NPreg, aes(x = x, y = yn, group = gr)) +
+   geom_point(aes(colour = as.factor(m1@cluster), shape = gr)) +
+   scale_colour_hue(l = 40, c = 180)
 ```
-
 
 #### Exercise 4.4 (Other hierarchical noise models)  
 
